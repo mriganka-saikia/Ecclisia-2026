@@ -68,7 +68,7 @@ PostgreSQL (Supabase)
 
 ```bash
 # 1. Clone
-git clone https://github.com/[your-username]/timebank-campus.git
+git clone https://github.com/mriganka-saikia/Ecclisia-2026
 cd timebank-campus
 
 # 2. Backend
@@ -125,8 +125,8 @@ Credit decay on idle balances, mentor badges, no-show penalties, in-app chat, re
 
 | Member | Role |
 |---|---|
-| [Member 1 name] | Team Leader and Full-Stack Developer |
-| [Member 2 name] | Developer and Research Lead |
+| Mriganka Saikia | Team Leader and Full-Stack Developer |
+| Shivam Dutta | Developer and Research Lead |
 
 ## Hackathon Compliance
 
