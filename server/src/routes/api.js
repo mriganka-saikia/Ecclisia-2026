@@ -6,7 +6,8 @@ import { bad, notFound } from '../errors.js';
 import { requireAuth, parse, publicUser } from '../auth.js';
 import { search } from '../services/match.js';
 import { freeIntervals, slotStarts } from '../services/slots.js';
-import { createSession, confirmSession, cancelSession, reviewSession, listSessions, SESSION_SELECT, shapeSession } from '../services/sessions.js';
+import { createSession, confirmSession, cancelSession, reviewSession, disputeSession, resolveDispute, listSessions, SESSION_SELECT, shapeSession } from '../services/sessions.js';
+import { settleOverdue } from '../services/settle.js';
 import { balances, verifyLedger } from '../lib/ledger.js';
 import { embedSkillById, embeddingsEnabled } from '../lib/embeddings.js';
 import { tokens, lexScore } from '../lib/text.js';
@@ -119,7 +120,10 @@ r.post('/search', async (req, res) => {
 
 // ---------- sessions
 const sessionById = async (id, me) => shapeSession((await query(`${SESSION_SELECT} WHERE se.id = $1`, [id])).rows[0], me);
-r.get('/sessions', async (req, res) => res.json(await listSessions(req.userId)));
+r.get('/sessions', async (req, res) => {
+  await settleOverdue().catch((e) => console.warn('[settle]', e.message)); // lazily settle anything overdue before showing it
+  res.json(await listSessions(req.userId));
+});
 r.post('/sessions', async (req, res) => {
   const d = parse(z.object({ skill_id: z.number().int(), start_at: z.string(), minutes: z.number().int(), note: z.string().max(280).optional() }), req.body);
   const id = await createSession(req.userId, { skillId: d.skill_id, startAt: d.start_at, minutes: d.minutes, note: d.note });
@@ -133,6 +137,15 @@ r.post('/sessions/:id/cancel', async (req, res) => {
   await cancelSession(req.userId, Number(req.params.id));
   res.json(await sessionById(Number(req.params.id), req.userId));
 });
+r.post('/sessions/:id/dispute', async (req, res) => {
+  await disputeSession(req.userId, Number(req.params.id));
+  res.json(await sessionById(Number(req.params.id), req.userId));
+});
+r.post('/sessions/:id/resolve', async (req, res) => {
+  const d = parse(z.object({ outcome: z.enum(['refund', 'release']) }), req.body);
+  await resolveDispute(req.userId, Number(req.params.id), d.outcome);
+  res.json(await sessionById(Number(req.params.id), req.userId));
+});
 r.post('/sessions/:id/review', async (req, res) => {
   const d = parse(z.object({ rating: z.number().int().min(1).max(5), comment: z.string().max(500).optional() }), req.body);
   await reviewSession(req.userId, Number(req.params.id), d);
@@ -141,6 +154,7 @@ r.post('/sessions/:id/review', async (req, res) => {
 
 // ---------- wallet + transparent ledger
 r.get('/wallet', async (req, res) => {
+  await settleOverdue().catch((e) => console.warn('[settle]', e.message));
   const me = req.userId;
   const bal = await balances({ query }, me);
   const rows = (await query(
