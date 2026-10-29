@@ -1,5 +1,3 @@
-# Ecclisia-2026
-Campus Skill exchange platform using time credits
 # TimeBank: Campus Skill Exchange Using Time Credits
 
 **ECCLISIA 4.0 · Problem Statement ECCLISIA26-003 · Team Ionize**
@@ -25,6 +23,7 @@ TimeBank is a campus-only platform where students teach and learn skills using *
 3. **Session booking and scheduling:** pick a slot, with double-booking prevention
 4. **Time-credit system:** credits are held in escrow at booking and released when both sides confirm; daily earn cap limits abuse
 5. **Confirmation, history and feedback:** wallet and transaction history, ratings after each session
+6. **AI-assisted search:** describe what you want to learn in plain language (for example "guitar basics tonight") and get ranked mentors via embeddings, with a keyword-search fallback
 
 ### Match score (design parameters)
 
@@ -42,7 +41,7 @@ React web app
      |
 Express API (REST, JWT auth)
      |-- Auth module        (college-email check + JWT)
-     |-- Skills + Matching  (search, weighted score)
+     |-- Skills + Matching  (keyword search, weighted score, AI semantic search)
      |-- Booking module     (slots, conflict checks)
      |-- Ledger module      (escrow, release, earn cap)
      |-- Feedback module    (ratings)
@@ -62,18 +61,19 @@ PostgreSQL (Supabase)
 | Backend | Node.js, Express |
 | Database | PostgreSQL (Supabase) |
 | Auth | JWT, bcrypt, college-email-domain check |
+| AI | LLM API (embeddings) for semantic skill search, no custom model training |
 | Hosting | Render / Vercel |
 
 ## Getting Started
 
 ```bash
 # 1. Clone
-git clone https://github.com/mriganka-saikia/Ecclisia-2026
+git clone https://github.com/[your-username]/timebank-campus.git
 cd timebank-campus
 
 # 2. Backend
 cd server
-cp .env.example .env     # add DATABASE_URL and JWT_SECRET
+cp .env.example .env     # add DATABASE_URL, JWT_SECRET, LLM_API_KEY
 npm install
 npm run dev
 
@@ -105,6 +105,7 @@ timebank-campus/
 - [ ] Credit escrow and release
 - [ ] Daily earn cap
 - [ ] Match score
+- [ ] AI semantic search (with keyword fallback)
 - [ ] Wallet and history
 - [ ] Feedback and ratings
 - [ ] Deployment
@@ -119,7 +120,7 @@ timebank-campus/
 
 ## Future Scope
 
-Credit decay on idle balances, mentor badges, no-show penalties, in-app chat, reminders and notifications, multi-campus support, caching layer.
+AI-generated session agendas, skill-tag normalization, credit decay on idle balances, mentor badges, no-show penalties, in-app chat, reminders and notifications, multi-campus support, caching layer.
 
 ## Team Ionize
 
