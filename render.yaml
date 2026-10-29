@@ -1,11 +1,18 @@
 # One-service deploy: Express serves the API and the built React app.
+# Deployed at https://ecclisia-2026.onrender.com (created manually as a Web Service).
 services:
   - type: web
-    name: timebank
+    name: ecclisia-2026
     runtime: node
+    plan: free
     buildCommand: npm run build
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NPM_CONFIG_INCLUDE
+        value: dev                  # client build needs Vite (a devDependency) while NODE_ENV=production
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
@@ -13,11 +20,11 @@ services:
       - key: COLLEGE_EMAIL_DOMAIN
         value: college.edu          # <- your real college domain
       - key: DATABASE_URL
-        sync: false                 # paste the Supabase connection string
+        sync: false                 # Supabase *Session pooler* connection string (IPv4)
       - key: LLM_API_KEY
         sync: false                 # optional: enables AI semantic search
       - key: CLIENT_ORIGIN
-        value: https://timebank.onrender.com
+        value: https://ecclisia-2026.onrender.com
       - key: DEMO_MODE
         value: "true"               # keep true for judging; set false afterwards
       - key: AUTO_SEED
