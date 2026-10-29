@@ -92,7 +92,7 @@ export default function Wallet() {
                 return (
                   <tr key={h.seq} className="border-t border-dashed border-line">
                     <td className="whitespace-nowrap px-5 py-2.5 font-mono text-xs text-mute">{fmtDate(h.at)} {fmtTime(h.at)}</td>
-                    <td className="px-3 py-2.5"><span className={`font-semibold ${t.tone}`}>{t.label}</span>{h.skill_title && <span className="text-mute"> · {h.skill_title}</span>}<div className="text-xs text-mute">{h.bucket === 'held' ? 'escrow account' : 'available balance'}</div></td>
+                    <td className="px-3 py-2.5"><span className={`font-semibold ${t.tone}`}>{t.label}</span>{h.skill_title && <span className="text-mute"> · {h.skill_title}</span>}<div className="text-xs text-mute">{h.memo ? `${h.memo} · ` : ''}{h.bucket === 'held' ? 'escrow account' : 'available balance'}</div></td>
                     <td className={`px-3 py-2.5 text-right font-mono font-semibold ${h.minutes > 0 ? 'text-pine' : 'text-clay'}`}>{h.minutes > 0 ? '+' : '−'}{fmtH(Math.abs(h.minutes) / 60)}</td>
                     <td className="px-3 py-2.5 font-mono text-xs text-mute">{h.hash}</td>
                   </tr>
