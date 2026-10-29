@@ -9,13 +9,7 @@ import { intersect, clip, total } from '../lib/intervals.js';
 const clamp = (x, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, x));
 const r2 = (x) => Math.round(x * 100) / 100;
 
-/**
- * Weighted match score (0-100):
- *   40% skill fit      hybrid of AI embedding similarity + lexical match (lexical only when AI is off)
- *   25% availability   mentor free time overlapping when you want it (parsed from the query / your own schedule)
- *   20% mentor rating  Bayesian-smoothed so brand-new mentors are not punished for having no reviews yet
- *   15% reciprocity    does the mentor want to learn something you can teach? (skill swap)
- */
+
 export async function search({ me, q = '', category = '', limit = 24, now = new Date() }) {
   const intent = parseTimeIntent(q, now);
   const qTokens = tokens(intent.topic);
@@ -41,7 +35,7 @@ export async function search({ me, q = '', category = '', limit = 24, now = new 
     query(`SELECT weekday, start_min, end_min FROM availability WHERE user_id = $1`, [me]),
   ]);
 
-  // ---- desired time windows: what the person typed > their own weekly availability > none
+  
   let desired = null, desiredSource = null;
   if (intent.windows) { desired = clip(intent.windows, nowAbs, hi); desiredSource = 'query'; }
   else if (myAv.rows.length) {
@@ -50,7 +44,7 @@ export async function search({ me, q = '', category = '', limit = 24, now = new 
     desired = clip(desired, nowAbs, hi); desiredSource = 'schedule';
   }
 
-  // ---- skill fit
+
   const qvec = qTokens.length && embeddingsEnabled() ? await embed(intent.topic, 'query') : null;
   const sims = cands.map((c) => (qvec && c.embedding ? cosine(qvec, c.embedding) : null));
   const maxSim = Math.max(-1, ...sims.filter((x) => x !== null));
@@ -77,7 +71,7 @@ export async function search({ me, q = '', category = '', limit = 24, now = new 
     const smooth = (c.rating_avg * n + 3.5 * 3) / (n + 3);
     const rating = clamp(smooth / 5);
 
-    // reciprocity: does this mentor want something I can teach?
+   
     let recip = 0, swap = null;
     for (const w of wants.rows.filter((w) => w.user_id === c.user_id)) {
       for (const o of mine.rows) {

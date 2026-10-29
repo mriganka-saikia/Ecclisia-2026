@@ -6,11 +6,7 @@ import { subtract, clip, total } from '../lib/intervals.js';
 export const LEAD_MIN = 30;
 export const HORIZON_DAYS = 7;
 
-/**
- * Free time for each mentor over the next 7 campus days, as absolute-minute intervals:
- *   weekly availability  -  already booked sessions  -  days where the mentor hit the daily earn cap.
- * `viewerId` (optional) also removes the viewer's own busy time so we never offer a clashing slot.
- */
+
 export async function freeIntervals(mentorIds, { now = new Date(), viewerId = null } = {}) {
   const out = new Map();
   if (!mentorIds.length) return out;
@@ -36,7 +32,7 @@ export async function freeIntervals(mentorIds, { now = new Date(), viewerId = nu
     let base = [];
     const rows = av.rows.filter((r) => r.user_id === mid);
     for (const d of days) {
-      // daily earn cap: minutes already earned or escrowed for this mentor on this local day
+      
       const used = ss.rows.filter((s) => s.mentor_id === mid && dateKey(new Date(s.start_at)) === d.key).reduce((n, s) => n + s.minutes, 0);
       if (used >= cfg.dailyCapMin) continue;
       for (const r of rows.filter((r) => r.weekday === d.weekday)) base.push([d.dayStartAbs + r.start_min, d.dayStartAbs + r.end_min]);
@@ -47,7 +43,6 @@ export async function freeIntervals(mentorIds, { now = new Date(), viewerId = nu
   return out;
 }
 
-/** Start times (absolute minutes) on a 30-minute grid that fit `minutes` inside the free intervals. */
 export function slotStarts(free, minutes) {
   const starts = [];
   const grid = 30, off = cfg.tzOffsetMin;
