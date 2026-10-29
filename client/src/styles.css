@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --color-paper: #fbf7ef;
+  --color-card: #fffdf8;
+  --color-ink: #1c1b19;
+  --color-mute: #6f6a60;
+  --color-line: #e8e0d0;
+  --color-pine: #0f5c4d;
+  --color-pine-dark: #0a4036;
+  --color-pine-soft: #e3f0ec;
+  --color-amber: #f2a33a;
+  --color-amber-soft: #fdf0d9;
+  --color-clay: #c4553a;
+  --color-clay-soft: #fbe6df;
+  --color-sky: #3b6fb6;
+}
+
+html { background: var(--color-paper); }
+body { font-family: var(--font-sans); color: var(--color-ink); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -0.01em; }
+.paper-grain { background-image: radial-gradient(rgba(15,92,77,.06) 1px, transparent 1px); background-size: 18px 18px; }
+.focus-ring:focus-visible { outline: 2px solid var(--color-pine); outline-offset: 2px; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise .35s ease both; }
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+.spin-slow { animation: spin-slow 24s linear infinite; }
+@keyframes pop { 0% { transform: scale(.6); opacity: 0 } 70% { transform: scale(1.08) } 100% { transform: scale(1); opacity: 1 } }
+.pop { animation: pop .4s ease both; }
+@media (prefers-reduced-motion: reduce) { .rise, .spin-slow, .pop { animation: none; } }
