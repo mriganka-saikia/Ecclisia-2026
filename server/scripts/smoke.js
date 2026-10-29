@@ -120,6 +120,80 @@ const next = (await call('GET', `/skills/${guitar.skill.id}/slots?minutes=120`, 
 r = await call('POST', '/sessions', { skill_id: guitar.skill.id, start_at: next, minutes: 120 }, T2);
 ok(r.status === 402 && r.body.code === 'INSUFFICIENT_CREDITS', 'cannot spend credits you do not have (402)');
 
+console.log('\nAuto-settlement and disputes');
+const { settleOverdue } = await import('../src/services/settle.js');
+const iso = (hoursAgo) => new Date(Date.now() - hoursAgo * 36e5).toISOString();
+const movePast = (id, endedHoursAgo) => query('UPDATE sessions SET start_at = $2, end_at = $3 WHERE id = $1', [id, iso(endedHoursAgo + 1), iso(endedHoursAgo)]);
+const bookNext = async (token) => {
+  const days = (await call('GET', `/skills/${guitar.skill.id}/slots?minutes=60`, null, token)).body.days;
+  return call('POST', '/sessions', { skill_id: guitar.skill.id, start_at: days[0].slots[0], minutes: 60 }, token);
+};
+const walletOf = async (token) => (await call('GET', '/wallet', null, token)).body;
+const M = mentorLogin.token;
+
+// a) one side confirmed, the other silent for 48h -> mentor is paid automatically
+let sess = (await bookNext(T)).body;
+ok(sess.auto_action === 'refund' && sess.can_dispute === true, 'a fresh booking shows what will happen if nobody acts (refund) and lets the learner dispute');
+await call('POST', `/sessions/${sess.id}/confirm`, null, T);
+const mentorBeforeA = (await walletOf(M)).available;
+await movePast(sess.id, 49);
+let res = await settleOverdue();
+let got = (await call('GET', '/sessions', null, T)).body.find((x) => x.id === sess.id);
+ok(res.released === 1 && got.status === 'completed' && got.resolution === 'auto_release', 'auto-release: learner confirmed, mentor silent for 49h, session completes');
+ok((await walletOf(M)).available === mentorBeforeA + 1, 'auto-release paid the mentor exactly 1 credit');
+ok((await walletOf(T)).held === 0, 'auto-release left nothing stuck in escrow');
+res = await settleOverdue();
+ok(res.released === 0 && res.refunded === 0, 'settling again does nothing (cannot pay twice)');
+
+// b) nobody confirmed -> refund got 72h (and not before), triggered lazily by reading sessions
+sess = (await bookNext(T)).body;
+const availBeforeB = (await walletOf(T)).available + 1; // balance before this booking
+await movePast(sess.id, 60);
+got = (await call('GET', '/sessions', null, T)).body.find((x) => x.id === sess.id);
+ok(got.status === 'booked', 'no auto-refund yet at 60h (window is 72h)');
+await movePast(sess.id, 80);
+got = (await call('GET', '/sessions', null, T)).body.find((x) => x.id === sess.id);
+ok(got.status === 'cancelled' && got.resolution === 'auto_refund', 'auto-refund after 80h with no confirmation (settled just by opening the page)');
+ok((await walletOf(T)).available === availBeforeB, 'auto-refund returned the credit to the learner');
+
+// c) dispute: credits freeze, mentor agrees to refund
+sess = (await bookNext(T)).body;
+await call('POST', `/sessions/${sess.id}/confirm`, null, M);
+r = await call('POST', `/sessions/${sess.id}/dispute`, null, M);
+ok(r.status === 400, 'the mentor cannot raise a dispute');
+r = await call('POST', `/sessions/${sess.id}/dispute`, null, T);
+ok(r.status === 200 && r.body.status === 'disputed' && r.body.auto_action === 'refund', 'learner reports a problem: session becomes disputed');
+ok((await walletOf(T)).held === 1, 'disputed credits stay frozen in escrow');
+r = await call('POST', `/sessions/${sess.id}/confirm`, null, T);
+ok(r.status === 409, 'a disputed session cannot be confirmed');
+r = await call('POST', `/sessions/${sess.id}/resolve`, { outcome: 'refund' }, T);
+ok(r.status === 403, 'the learner cannot force a refund on their own dispute');
+const availBeforeC = (await walletOf(T)).available;
+r = await call('POST', `/sessions/${sess.id}/resolve`, { outcome: 'refund' }, M);
+ok(r.status === 200 && r.body.status === 'cancelled' && r.body.resolution === 'dispute_refund', 'mentor agrees: dispute ends in a refund');
+ok((await walletOf(T)).available === availBeforeC + 1, 'learner got the credit back');
+
+// d) learner withdraws the dispute and releases the credits
+sess = (await bookNext(T)).body;
+await call('POST', `/sessions/${sess.id}/confirm`, null, M);
+await call('POST', `/sessions/${sess.id}/dispute`, null, T);
+const mentorBeforeD = (await walletOf(M)).available;
+r = await call('POST', `/sessions/${sess.id}/resolve`, { outcome: 'release' }, M);
+ok(r.status === 403, 'the mentor cannot release credits on a disputed session');
+r = await call('POST', `/sessions/${sess.id}/resolve`, { outcome: 'release' }, T);
+ok(r.status === 200 && r.body.status === 'completed' && r.body.resolution === 'dispute_withdrawn', 'learner withdraws the dispute: session completes');
+ok((await walletOf(M)).available === mentorBeforeD + 1, 'mentor is paid after the dispute is withdrawn');
+
+// e) unresolved dispute for 7 days -> refund to the learner
+sess = (await bookNext(T2)).body;
+const availBeforeE = (await walletOf(T2)).available + 1;
+await call('POST', `/sessions/${sess.id}/dispute`, null, T2);
+await query('UPDATE sessions SET disputed_at = $2 WHERE id = $1', [sess.id, iso(8 * 24)]);
+res = await settleOverdue();
+got = (await call('GET', '/sessions', null, T2)).body.find((x) => x.id === sess.id);
+ok(res.refunded === 1 && got.status === 'cancelled' && got.resolution === 'dispute_timeout', 'a dispute nobody resolves for 7 days refunds the learner');
+ok((await walletOf(T2)).available === availBeforeE, 'the timed-out dispute returned the credit');
+
 console.log('\nLedger integrity');
 let v = await verifyLedger({ query });
 ok(v.ok, `ledger verifies: ${v.entries} entries, ${v.transactions} txns, chain intact, supply conserved`);

@@ -12,6 +12,10 @@ export const cfg = {
   tzOffsetMin: num(process.env.CAMPUS_TZ_OFFSET_MIN, 330),
   dailyCapMin: Math.round(num(process.env.DAILY_EARN_CAP_HOURS, 4) * 60),
   welcomeMin: Math.round(num(process.env.WELCOME_CREDITS_HOURS, 3) * 60),
+  // Settlement windows, measured from the END of the session
+  autoReleaseHours: num(process.env.AUTO_RELEASE_HOURS, 48), // one side confirmed, other silent -> pay the mentor
+  autoRefundHours: num(process.env.AUTO_REFUND_HOURS, 72),   // nobody confirmed -> refund the learner
+  disputeDays: num(process.env.DISPUTE_RESOLVE_DAYS, 7),     // unresolved dispute -> refund the learner
   llmProvider: (process.env.LLM_PROVIDER || 'gemini').toLowerCase(),
   llmKey: process.env.LLM_API_KEY || '',
   embeddingModel: process.env.EMBEDDING_MODEL || '',

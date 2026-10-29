@@ -52,11 +52,14 @@ CREATE TABLE IF NOT EXISTS sessions (
   start_at             TIMESTAMPTZ NOT NULL,
   end_at               TIMESTAMPTZ NOT NULL,
   minutes              INT NOT NULL CHECK (minutes IN (30,60,90,120)),
-  status               TEXT NOT NULL DEFAULT 'booked' CHECK (status IN ('booked','completed','cancelled')),
+  status               TEXT NOT NULL DEFAULT 'booked' CHECK (status IN ('booked','completed','cancelled','disputed')),
   mentor_confirmed_at  TIMESTAMPTZ,
   learner_confirmed_at TIMESTAMPTZ,
   completed_at         TIMESTAMPTZ,
   cancelled_by         INT REFERENCES users(id),
+  disputed_by          INT REFERENCES users(id),
+  disputed_at          TIMESTAMPTZ,
+  resolution           TEXT,   -- auto_release | auto_refund | dispute_refund | dispute_withdrawn | dispute_timeout
   meet_url             TEXT,
   note                 TEXT NOT NULL DEFAULT '',
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -103,3 +106,16 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS reviews_mentor_idx ON reviews(mentor_id);
+
+-- Upgrade path for databases created before disputes existed. Safe to run on every start.
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS disputed_by INT REFERENCES users(id);
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS disputed_at TIMESTAMPTZ;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS resolution  TEXT;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conrelid = 'sessions'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%disputed%') THEN
+    ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_status_check;
+    ALTER TABLE sessions ADD CONSTRAINT sessions_status_check CHECK (status IN ('booked','completed','cancelled','disputed'));
+  END IF;
+END $$;

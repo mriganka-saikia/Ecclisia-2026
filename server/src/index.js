@@ -2,6 +2,7 @@ import { initDb, dbKind } from './db.js';
 import { buildApp } from './app.js';
 import { cfg } from './config.js';
 import { backfillEmbeddings, embeddingsEnabled } from './lib/embeddings.js';
+import { settleOverdue } from './services/settle.js';
 
 await initDb();
 if (process.env.AUTO_SEED === 'true') {
@@ -15,5 +16,8 @@ app.listen(cfg.port, () => {
   console.log(`  database      ${dbKind}`);
   console.log(`  AI search     ${embeddingsEnabled() ? `on (${cfg.llmProvider})` : 'off — keyword matching fallback'}`);
   console.log(`  college mail  @${cfg.domains.join(', @')}   demo mode: ${cfg.demoMode}\n`);
+  const settle = () => settleOverdue().then((r) => (r.released || r.refunded) && console.log(`  settled: ${r.released} released, ${r.refunded} refunded`)).catch((e) => console.warn('[settle]', e.message));
+  settle();
+  setInterval(settle, 10 * 60_000).unref();
   backfillEmbeddings().then((n) => n && console.log(`  embedded ${n} skills`)).catch(() => {});
 });
