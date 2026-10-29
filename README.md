@@ -84,7 +84,7 @@ Express API (REST, JWT auth), also serves the built React app
 PostgreSQL (Supabase), or embedded PGlite when no DATABASE_URL is set
 ```
 
-More detail and diagrams are in [docs/architecture.md](docs/architecture.md).
+More detail and diagrams are in [docs/architecture.md](architecture.md).
 
 ### Data model
 
