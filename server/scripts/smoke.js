@@ -1,5 +1,5 @@
 // End-to-end API test on an in-memory database: `npm run smoke`
-process.env.PGLITE_DIR = 'memory'; process.env.DATABASE_URL = ''; process.env.DEMO_MODE = 'true';
+process.env.PGLITE_DIR = 'memory'; process.env.DATABASE_URL = process.env.SMOKE_DATABASE_URL || ''; process.env.DEMO_MODE = 'true';
 process.env.LLM_API_KEY = ''; process.env.COLLEGE_EMAIL_DOMAIN = 'college.edu'; process.env.DAILY_EARN_CAP_HOURS = '4';
 
 const { initDb, query } = await import('../src/db.js');
@@ -56,6 +56,15 @@ r = await call('POST', '/search', { q: 'I want to learn to design posters' }, T)
 ok(r.body.results[0]?.skill.title.includes('Poster'), 'natural language: design posters');
 r = await call('POST', '/search', { q: 'guitar' }, T);
 ok(r.body.results[0].swap?.exact === true, 'reciprocity: guitar mentor wants Python, I teach Python');
+
+console.log('\nCampus demand gap');
+let dem = (await call('GET', '/demand', null, T)).body;
+const photo = dem.gaps.find((g) => g.title === 'Photography Basics');
+ok(photo && photo.wanters === 3 && photo.teachers === 0, 'unmet demand found: Photography Basics (3 students want it, nobody teaches it)');
+ok(!dem.gaps.some((g) => /guitar|python/i.test(g.title)), 'skills that already have a teacher are not listed as gaps');
+await call('POST', '/skills', { kind: 'offer', title: 'Photography Basics', category: 'Arts & Crafts', level: 'beginner', description: 'Composition, light and phone photography.' }, T);
+dem = (await call('GET', '/demand', null, T)).body;
+ok(!dem.gaps.some((g) => g.title === 'Photography Basics'), 'a gap closes as soon as someone offers to teach it');
 
 console.log('\nBooking, escrow, double-booking');
 const guitar = r.body.results[0];

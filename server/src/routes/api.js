@@ -9,6 +9,7 @@ import { freeIntervals, slotStarts } from '../services/slots.js';
 import { createSession, confirmSession, cancelSession, reviewSession, listSessions, SESSION_SELECT, shapeSession } from '../services/sessions.js';
 import { balances, verifyLedger } from '../lib/ledger.js';
 import { embedSkillById, embeddingsEnabled } from '../lib/embeddings.js';
+import { tokens, lexScore } from '../lib/text.js';
 import { dateKey, dayRangeUtc, nextDays, absToDate, toAbs } from '../time.js';
 
 const r = Router();
@@ -175,6 +176,31 @@ r.get('/leaderboard', async (_req, res) => {
        FROM sessions se JOIN users u ON u.id = se.mentor_id WHERE se.status='completed' AND se.completed_at >= $1
       GROUP BY u.id ORDER BY m DESC LIMIT 5`, [since]);
   res.json(rows.map((x) => ({ id: x.id, name: x.name, department: x.department, hours: x.m / 60, sessions: x.n, rating_avg: x.rating_avg, rating_count: x.rating_count })));
+});
+
+// ---------- campus demand gap: skills students want that nobody teaches yet
+r.get('/demand', async (req, res) => {
+  const [wants, offers] = await Promise.all([
+    query(`SELECT s.title, s.category, s.user_id FROM skills s JOIN users u ON u.id = s.user_id WHERE s.kind = 'want' AND s.active AND u.verified`),
+    query(`SELECT s.title, s.category, s.description, s.user_id FROM skills s JOIN users u ON u.id = s.user_id WHERE s.kind = 'offer' AND s.active AND u.verified`),
+  ]);
+  const groups = new Map();
+  for (const w of wants.rows) {
+    const toks = tokens(w.title);
+    const key = toks.join(' ') || w.title.toLowerCase();
+    const g = groups.get(key) || { title: w.title, category: w.category, toks, users: new Set() };
+    g.users.add(w.user_id);
+    groups.set(key, g);
+  }
+  const gaps = [...groups.values()]
+    .map((g) => ({
+      title: g.title, category: g.category, wanters: g.users.size, mine: g.users.has(req.userId),
+      teachers: new Set(offers.rows.filter((o) => lexScore(g.toks, o) >= 0.6).map((o) => o.user_id)).size,
+    }))
+    .filter((g) => g.teachers === 0)
+    .sort((a, b) => b.wanters - a.wanters || a.title.localeCompare(b.title))
+    .slice(0, 6);
+  res.json({ gaps, total_wants: wants.rows.length });
 });
 
 export default r;
