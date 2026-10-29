@@ -5,10 +5,7 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 export const rowHash = (r) =>
   sha([r.prev_hash, r.seq, r.txn_id, r.user_id ?? 'SYSTEM', r.bucket, r.delta, r.type, r.session_id ?? '', new Date(r.created_at).toISOString()].join('|'));
 
-/**
- * Append one balanced transaction to the hash-chained ledger.
- * Must be called inside db.tx(); locks ledger_head so the chain is strictly serial.
- */
+
 export async function postTxn(t, { type, sessionId = null, memo = '', entries, at = new Date() }) {
   if (entries.reduce((a, e) => a + e.delta, 0) !== 0) throw new Error('Unbalanced ledger transaction');
   const head = (await t.query('SELECT seq, hash FROM ledger_head WHERE id = 1 FOR UPDATE')).rows[0];
@@ -47,7 +44,7 @@ export async function grantWelcome(t, userId) {
   return true;
 }
 
-/** Full audit: hash chain, contiguity, per-txn zero-sum, no negative balance at any point, head pointer. */
+
 export async function verifyLedger(t) {
   const { rows } = await t.query('SELECT * FROM ledger ORDER BY seq ASC');
   const head = (await t.query('SELECT seq, hash FROM ledger_head WHERE id = 1')).rows[0];
