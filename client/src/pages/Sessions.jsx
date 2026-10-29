@@ -23,6 +23,15 @@ function ReviewModal({ s, onClose, onDone }) {
   );
 }
 
+const when = (iso) => `${fmtDate(iso)}, ${fmtTime(iso)}`;
+const RESOLUTION = {
+  auto_release: 'Auto-released after the confirmation window',
+  auto_refund: 'Auto-refunded: nobody confirmed',
+  dispute_refund: 'Dispute resolved: refunded',
+  dispute_withdrawn: 'Dispute withdrawn: credits released',
+  dispute_timeout: 'Dispute timed out: refunded',
+};
+
 function SessionCard({ s, act, onReview, demo }) {
   const mine = s.role === 'mentor' ? s.confirmed.mentor : s.confirmed.learner;
   const theirs = s.role === 'mentor' ? s.confirmed.learner : s.confirmed.mentor;
@@ -42,6 +51,20 @@ function SessionCard({ s, act, onReview, demo }) {
         <Chip tone={s.status === 'completed' ? 'pine' : s.status === 'cancelled' ? 'clay' : 'neutral'}>{s.status}</Chip>
       </div>
 
+      {s.resolution && <p className="mt-2"><Chip tone={s.status === 'completed' ? 'pine' : 'amber'}>{RESOLUTION[s.resolution]}</Chip></p>}
+
+      {s.status === 'disputed' && (
+        <>
+          <p className="mt-3 rounded-xl bg-clay-soft p-3 text-sm text-clay">
+            <b>Dispute open.</b> {fmtH(s.credits)} credit is frozen in escrow. If it is not resolved it will be refunded to the learner on {when(s.auto_at)}.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-dashed border-line pt-3">
+            {s.role === 'mentor' && <Button size="sm" variant="danger" onClick={() => act(s.id, 'resolve', { outcome: 'refund' })}>Agree to refund {s.learner.name.split(' ')[0]}</Button>}
+            {s.role === 'learner' && <Button size="sm" onClick={() => act(s.id, 'resolve', { outcome: 'release' })}>It was fine, release the credits</Button>}
+          </div>
+        </>
+      )}
+
       {s.status === 'booked' && (
         <>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
@@ -50,10 +73,18 @@ function SessionCard({ s, act, onReview, demo }) {
             {s.role === 'learner' && <Chip tone="amber">{fmtH(s.credits)} cr in escrow</Chip>}
           </div>
           {s.note && <p className="mt-2 text-sm italic text-mute">“{s.note}”</p>}
+          {s.auto_at && new Date() > new Date(s.end_at) && (
+            <p className="mt-2 text-xs text-mute">
+              {s.auto_action === 'release'
+                ? `Credits release automatically on ${when(s.auto_at)} unless ${s.role === 'learner' ? 'you report a problem' : 'the learner reports one'}.`
+                : `If nobody confirms, credits are refunded to the learner on ${when(s.auto_at)}.`}
+            </p>
+          )}
           <div className="mt-4 flex flex-wrap gap-2 border-t border-dashed border-line pt-3">
             {s.meet_url && <a href={s.meet_url} target="_blank" rel="noreferrer"><Button size="sm" variant="outline">Join video room ↗</Button></a>}
             <CalendarButtons s={s} />
             {!mine && <Button size="sm" onClick={() => act(s.id, 'confirm')} title={demo ? 'Demo mode lets you confirm early' : ''}>Confirm it happened</Button>}
+            {s.can_dispute && <Button size="sm" variant="outline" onClick={() => act(s.id, 'dispute')}>Report a problem</Button>}
             <Button size="sm" variant="danger" onClick={() => act(s.id, 'cancel')}>{s.role === 'learner' ? 'Cancel & refund' : 'Cancel'}</Button>
           </div>
         </>
@@ -74,20 +105,26 @@ export default function Sessions() {
   const toast = useToast();
   const load = () => api('/sessions').then(setList);
   useEffect(() => { load(); }, []);
-  const act = async (id, what) => {
+  const act = async (id, what, body) => {
+    if (what === 'dispute' && !window.confirm('Report a problem? The credits stay frozen until you and the mentor resolve it.')) return;
     try {
-      const r = await api(`/sessions/${id}/${what}`, { method: 'POST' });
-      toast(what === 'cancel' ? 'Cancelled — credits refunded.' : r.released ? 'Both confirmed — credits released! 🎉' : 'Confirmed. Waiting for your partner.');
+      const r = await api(`/sessions/${id}/${what}`, { method: 'POST', body });
+      toast({
+        cancel: 'Cancelled — credits refunded.',
+        dispute: 'Problem reported. The credits are frozen until it is resolved.',
+        resolve: body?.outcome === 'refund' ? 'Refunded to the learner.' : 'Credits released to the mentor.',
+      }[what] || (r.released ? 'Both confirmed — credits released! 🎉' : 'Confirmed. Waiting for your partner.'));
       refreshWallet(); load();
     } catch (e) { toast(e.message, 'err'); }
   };
   const tabs = [['booked', 'Upcoming'], ['completed', 'Completed'], ['cancelled', 'Cancelled']];
-  const shown = (list || []).filter((s) => s.status === tab).sort((a, b) => (tab === 'booked' ? new Date(a.start_at) - new Date(b.start_at) : new Date(b.start_at) - new Date(a.start_at)));
+  const inTab = (s, k) => (k === 'booked' ? s.status === 'booked' || s.status === 'disputed' : s.status === k);
+  const shown = (list || []).filter((s) => inTab(s, tab)).sort((a, b) => (tab === 'booked' ? new Date(a.start_at) - new Date(b.start_at) : new Date(b.start_at) - new Date(a.start_at)));
   return (
     <div>
       <h1 className="text-3xl font-bold sm:text-4xl">Your sessions</h1>
       <div className="mt-5 inline-flex rounded-xl bg-line/50 p-1" role="tablist">
-        {tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`focus-ring rounded-lg px-4 py-1.5 text-sm font-semibold ${tab === k ? 'bg-card text-pine shadow' : 'text-mute'}`}>{l} <span className="font-mono text-xs opacity-60">{(list || []).filter((s) => s.status === k).length}</span></button>)}
+        {tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`focus-ring rounded-lg px-4 py-1.5 text-sm font-semibold ${tab === k ? 'bg-card text-pine shadow' : 'text-mute'}`}>{l} <span className="font-mono text-xs opacity-60">{(list || []).filter((s) => inTab(s, k)).length}</span></button>)}
       </div>
       {!list ? <div className="mt-10 grid place-items-center"><Spinner /></div> : (
         <div className="mt-5 grid gap-4 md:grid-cols-2">
