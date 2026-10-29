@@ -1,5 +1,4 @@
-// Lightweight lexical matcher: stop-words, stemming, synonyms and typo tolerance. Powers the keyword fallback
-// and also contributes to the hybrid score when AI embeddings are available.
+
 const STOP = new Set(('a an the i me my we you your want wanna to learn learning teach teaching help with in on for of and or need some how can ' +
   'someone who please about at from get better improve session class lesson tutor tutoring mentor good is am looking find study basics basic ' +
   'beginner beginners intro introduction advanced started start new really very like would').split(' '));
@@ -33,7 +32,7 @@ export const tokens = (text, { expand = true } = {}) => {
   return [...new Set(out)];
 };
 
-// Optimal-string-alignment distance: insert/delete/substitute/transpose each cost 1 ("pyhton" -> "python" = 1)
+
 export const editDistance = (a, b) => {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
   for (let j = 1; j <= b.length; j++) d[0][j] = j;
@@ -44,7 +43,7 @@ export const editDistance = (a, b) => {
   return d[a.length][b.length];
 };
 
-/** 0..1 — how well the query tokens are covered by a skill's title / category / description. */
+
 export function lexScore(qTokens, { title, category, description }) {
   if (!qTokens.length) return 0;
   const T = tokens(title, { expand: false }), C = tokens(category, { expand: false }), D = new Set(tokens(description, { expand: false }));
@@ -57,7 +56,7 @@ export function lexScore(qTokens, { title, category, description }) {
     else if (C.includes(q)) best = 0.6;
     else if (D.has(q)) best = 0.45;
     else {
-      // typo tolerance: 1 edit for short words, 2 for long ones
+      
       if (q.length >= 4) {
         const limit = q.length >= 7 ? 2 : 1;
         const dmin = Math.min(99, ...[...T, ...C].map((t) => editDistance(q, t)));
