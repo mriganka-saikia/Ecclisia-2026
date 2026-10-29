@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, fmtDate, fmtTime, fmtH, refreshWallet } from '../api.js';
 import { Card, Chip, Button, Avatar, StarInput, Spinner, useToast, Modal, inputCls } from '../ui.jsx';
+import CalendarButtons from './CalendarButtons.jsx';
 
 function ReviewModal({ s, onClose, onDone }) {
   const [rating, setRating] = useState(5);
@@ -51,6 +52,7 @@ function SessionCard({ s, act, onReview, demo }) {
           {s.note && <p className="mt-2 text-sm italic text-mute">“{s.note}”</p>}
           <div className="mt-4 flex flex-wrap gap-2 border-t border-dashed border-line pt-3">
             {s.meet_url && <a href={s.meet_url} target="_blank" rel="noreferrer"><Button size="sm" variant="outline">Join video room ↗</Button></a>}
+            <CalendarButtons s={s} />
             {!mine && <Button size="sm" onClick={() => act(s.id, 'confirm')} title={demo ? 'Demo mode lets you confirm early' : ''}>Confirm it happened</Button>}
             <Button size="sm" variant="danger" onClick={() => act(s.id, 'cancel')}>{s.role === 'learner' ? 'Cancel & refund' : 'Cancel'}</Button>
           </div>
