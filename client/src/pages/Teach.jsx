@@ -1,16 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Card, Chip, Button, Field, inputCls, Spinner, useToast } from '../ui.jsx';
+import DemandCard from './Demand.jsx';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 7); // 7:00 – 22:00 start hours
 const hourLabel = (h) => `${((h + 11) % 12) + 1}${h < 12 ? 'a' : 'p'}`;
 
-function AddSkill({ kind, onAdded }) {
+function AddSkill({ kind, onAdded, prefill }) {
   const { meta } = useAuth();
   const toast = useToast();
-  const [f, setF] = useState({ title: '', category: 'Programming', level: 'all', description: '' });
+  const [f, setF] = useState({
+    title: prefill?.title || '',
+    category: meta?.categories?.includes(prefill?.category) ? prefill.category : 'Programming',
+    level: 'all',
+    description: '',
+  });
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const submit = async (e) => {
@@ -95,9 +102,14 @@ function Availability() {
 
 export default function Teach() {
   const [skills, setSkills] = useState(null);
+  const [sp] = useSearchParams();
+  const prefill = { title: sp.get('offer') || '', category: sp.get('cat') || '' };
   const toast = useToast();
   const load = () => api('/me/skills').then(setSkills);
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (prefill.title) document.getElementById('add-offer')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [prefill.title]);
   const del = async (id) => { await api(`/skills/${id}`, { method: 'DELETE' }); toast('Removed.'); load(); };
   const List = ({ kind }) => (
     <div className="flex flex-wrap gap-2">
@@ -114,8 +126,9 @@ export default function Teach() {
     <div>
       <h1 className="text-3xl font-bold sm:text-4xl">Teach & learn</h1>
       <p className="mt-1 text-mute">The more you list, the better your matches — mentors who want to learn what you teach get ranked higher for you.</p>
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <Card className="p-5"><h2 className="text-xl font-bold">Skills I teach <Chip tone="pine">earn 1 cr / hour</Chip></h2><div className="mt-3"><List kind="offer" /></div><AddSkill kind="offer" onAdded={load} /></Card>
+      <div className="mt-6 max-w-xl"><DemandCard /></div>
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <Card id="add-offer" className="p-5"><h2 className="text-xl font-bold">Skills I teach <Chip tone="pine">earn 1 cr / hour</Chip></h2><div className="mt-3"><List kind="offer" /></div><AddSkill kind="offer" onAdded={load} prefill={prefill} /></Card>
         <Card className="p-5"><h2 className="text-xl font-bold">Skills I want to learn</h2><div className="mt-3"><List kind="want" /></div><AddSkill kind="want" onAdded={load} /></Card>
       </div>
       <Card className="mt-5 p-5"><h2 className="text-xl font-bold">When am I free to teach?</h2><p className="mb-3 text-sm text-mute">Tap the hours you’re usually available. Students can only book inside these windows, and the same grid helps match you with mentors.</p><Availability /></Card>

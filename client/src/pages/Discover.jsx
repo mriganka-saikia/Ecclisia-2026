@@ -4,6 +4,7 @@ import { api, fmtDate, fmtTime, fmtRel, fmtH } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Card, Chip, Avatar, Stars, MatchBar, ScoreRing, FACTORS, Spinner, Button } from '../ui.jsx';
 import BookModal from './BookModal.jsx';
+import DemandCard from './Demand.jsx';
 
 const EXAMPLES = ['guitar basics tonight', 'help me with calculus this weekend', 'learn to design posters', 'python for beginners tomorrow evening', 'prepare for interviews'];
 
@@ -69,6 +70,7 @@ function Rail() {
           {!feed && <Spinner />}
         </ul>
       </Card>
+      <DemandCard compact />
     </aside>
   );
 }
